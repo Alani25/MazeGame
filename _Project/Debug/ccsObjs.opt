@@ -1,0 +1,10 @@
+"./LaunchPad.o"
+"./adc.o"
+"./clock.o"
+"./lcd1602.o"
+"./main.o"
+"./spi.o"
+"./uart.o"
+"./ticlang/startup_mspm0g3507_ticlang.o"
+"../mspm0g3507.cmd"
+-llibc.a
