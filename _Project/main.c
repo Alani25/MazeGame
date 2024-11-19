@@ -60,6 +60,8 @@ void initMap(const char *string);
 
 void displayMaze(const char *string);
 
+void move_joystick(void);
+
 // void run_project(void);
 
 //-----------------------------------------------------------------------------
@@ -86,7 +88,7 @@ int main(void) {
   dipsw_init();   //
   lpsw_init();    //
                   //   keypad_init();
-
+      
   seg7_init();
 
   seg7_off();
@@ -100,64 +102,67 @@ int main(void) {
 //   GPIOB->DOUT31_0 &= ~LP_SPI_CS0_MASK;
 
   //   OPA0_init();
-  //   ADC0_init(ADC12_MEMCTL_VRSEL_VDDA_VSSA); // Initialize ADC
-  //   config();
+ ADC0_init(ADC12_MEMCTL_VRSEL_VDDA_VSSA); // Initialize ADC
+ config();
 
-    char maze1[] =  "       #" //  0- 7
-                    " # ### #" //  8-15
-                    " # #   #" // 16-23
-                    "   # ###" // 24-31
-                    " ###    " // 32-39 END of maze here
-                    " # # # #" // 40-47
-                    " # ### #" // 48-55
-                    "    #  #";// 56-63
+    // char maze1[] =  "       #" //  0- 7
+    //                 " # ### #" //  8-15
+    //                 " # #   #" // 16-23
+    //                 "   # ###" // 24-31
+    //                 " ###    " // 32-39 END of maze here
+    //                 " # # # #" // 40-47
+    //                 " # ### #" // 48-55
+    //                 "    #  #";// 56-63
     
 
-    bool done = false;
-    while(!done){
-        UART_write_string("\n\n Maze 1 \n\n");
-        displayMaze(maze1);
+    // bool done = false;
+    // while(!done){
+    //     UART_write_string("\n\n Maze 1 \n\n");
+    //     displayMaze(maze1);
 
-        char inputChar = UART_in_char(); // inputted character
-        switch (inputChar) {
-            case 'w':
-            // move up
-            if(playerPos>7&&maze1[playerPos-8]!='#')
-                playerPos-=8;
-            break;
+    //     char inputChar = UART_in_char(); // inputted character
+    //     switch (inputChar) {
+    //         case 'w':
+    //         // move up
+    //         if(playerPos>7&&maze1[playerPos-8]!='#')
+    //             playerPos-=8;
+    //         break;
 
-            case 's':
-            // move down
-            if(playerPos<56&&maze1[playerPos+8]!='#')
-                playerPos+=8;
-            break;
+    //         case 's':
+    //         // move down
+    //         if(playerPos<56&&maze1[playerPos+8]!='#')
+    //             playerPos+=8;
+    //         break;
 
-            case 'd':
-            // move right
-            if((playerPos+1)%8!=0&&maze1[playerPos+1]!='#')
-                playerPos++;
-            break;
+    //         case 'd':
+    //         // move right
+    //         if((playerPos+1)%8!=0&&maze1[playerPos+1]!='#')
+    //             playerPos++;
+    //         break;
 
-            case 'a':
-            // move left
-            if(playerPos%8!=0&&maze1[playerPos-1]!='#')
-                playerPos--;
-            break;
+    //         case 'a':
+    //         // move left
+    //         if(playerPos%8!=0&&maze1[playerPos-1]!='#')
+    //             playerPos--;
+    //         break;
 
-            case 'r':
-            // reset position
-            playerPos = 24;
-            break;
+    //         case 'r':
+    //         // reset position
+    //         playerPos = 24;
+    //         break;
         
-        }
-        if((playerPos+1)%8==0){
-            done = true;
-        }
-    }
+    //     }
+    //     if((playerPos+1)%8==0){
+    //         done = true;
+    //     }
+    // }
 
-    displayMaze(maze1);
-    UART_write_string("\n\n MAZE 1 COMPLETE \n\n");
-
+    // displayMaze(maze1);
+    // UART_write_string("\n\n MAZE 1 COMPLETE \n\n");
+  while(true)
+  {
+    move_joystick();
+  }
 
   
   while (1);
@@ -187,6 +192,21 @@ void displayMaze(const char *string) {
   }
   UART_out_char('\n');
 
+}
+
+void move_joystick(void)
+{
+    uint16_t adc_result = 2400;
+
+    uint16_t adc_difference = adc_result - ADC0_in(7);
+    lcd_set_ddram_addr(0x00);
+    lcd_write_string("ADC = ");
+    lcd_write_doublebyte(adc_result);
+    lcd_set_ddram_addr(0x40);
+    lcd_write_string("ADC Diff = ");
+    lcd_write_doublebyte(adc_difference);
+    
+    
 }
 
 void UART_write_string(const char *string) {
