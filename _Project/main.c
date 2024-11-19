@@ -19,6 +19,9 @@
 // Loads standard C include files
 //-----------------------------------------------------------------------------
 
+
+
+
 #include <stdio.h>
 #include <ti/devices/msp/msp.h>
 
@@ -60,7 +63,7 @@ void initMap(const char *string);
 
 void displayMaze(const char *string);
 
-void move_joystick(void);
+char move_joystick(void);
 
 // void run_project(void);
 
@@ -105,64 +108,67 @@ int main(void) {
  ADC0_init(ADC12_MEMCTL_VRSEL_VDDA_VSSA); // Initialize ADC
  config();
 
-    // char maze1[] =  "       #" //  0- 7
-    //                 " # ### #" //  8-15
-    //                 " # #   #" // 16-23
-    //                 "   # ###" // 24-31
-    //                 " ###    " // 32-39 END of maze here
-    //                 " # # # #" // 40-47
-    //                 " # ### #" // 48-55
-    //                 "    #  #";// 56-63
+    char maze1[] =  "       #" //  0- 7
+                    " # ### #" //  8-15
+                    " # #   #" // 16-23
+                    "   # ###" // 24-31
+                    " ###    " // 32-39 END of maze here
+                    " # # # #" // 40-47
+                    " # ### #" // 48-55
+                    "    #  #";// 56-63
     
 
-    // bool done = false;
-    // while(!done){
-    //     UART_write_string("\n\n Maze 1 \n\n");
-    //     displayMaze(maze1);
+    bool done = false;
+    while(!done){
+        UART_write_string("\n\n Maze 1 \n\n");
+        displayMaze(maze1);
+        msec_delay(100);
 
-    //     char inputChar = UART_in_char(); // inputted character
-    //     switch (inputChar) {
-    //         case 'w':
-    //         // move up
-    //         if(playerPos>7&&maze1[playerPos-8]!='#')
-    //             playerPos-=8;
-    //         break;
-
-    //         case 's':
-    //         // move down
-    //         if(playerPos<56&&maze1[playerPos+8]!='#')
-    //             playerPos+=8;
-    //         break;
-
-    //         case 'd':
-    //         // move right
-    //         if((playerPos+1)%8!=0&&maze1[playerPos+1]!='#')
-    //             playerPos++;
-    //         break;
-
-    //         case 'a':
-    //         // move left
-    //         if(playerPos%8!=0&&maze1[playerPos-1]!='#')
-    //             playerPos--;
-    //         break;
-
-    //         case 'r':
-    //         // reset position
-    //         playerPos = 24;
-    //         break;
+        // char inputChar = UART_in_char(); // inputted character
+        char inputChar = move_joystick();
         
-    //     }
-    //     if((playerPos+1)%8==0){
-    //         done = true;
-    //     }
-    // }
+        switch (inputChar) {
+            case 'w':
+            // move up
+            if(playerPos>7&&maze1[playerPos-8]!='#')
+                playerPos-=8;
+            break;
 
-    // displayMaze(maze1);
-    // UART_write_string("\n\n MAZE 1 COMPLETE \n\n");
-  while(true)
-  {
-    move_joystick();
-  }
+            case 's':
+            // move down
+            if(playerPos<56&&maze1[playerPos+8]!='#')
+                playerPos+=8;
+            break;
+
+            case 'd':
+            // move right
+            if((playerPos+1)%8!=0&&maze1[playerPos+1]!='#')
+                playerPos++;
+            break;
+
+            case 'a':
+            // move left
+            if(playerPos%8!=0&&maze1[playerPos-1]!='#')
+                playerPos--;
+            break;
+
+            case 'r':
+            // reset position
+            playerPos = 24;
+            break;
+        
+        }
+        if((playerPos+1)%8==0){
+            done = true;
+        }
+    }
+
+    displayMaze(maze1);
+    UART_write_string("\n\n MAZE 1 COMPLETE \n\n");
+//   while(true)
+//   {
+//     move_joystick();
+//   }
 
   
   while (1);
@@ -194,17 +200,60 @@ void displayMaze(const char *string) {
 
 }
 
-void move_joystick(void)
+char move_joystick(void)
 {
-    uint16_t adc_result = 2400;
+    uint16_t adc_y = ADC0_in(7);
+    uint16_t adc_x = ADC0_in(0);
+    // msec_delay(25);
 
-    uint16_t adc_difference = adc_result - ADC0_in(7);
+
+
+
+    // if(adc_result>2400)
+    //     adc_result = adc_result - 2400; // #define the 2400 TODO
+
+    // uint16_t adc_difference = abs(adc_result - 2400); // #define the 2400 as initial position TODO
+
     lcd_set_ddram_addr(0x00);
-    lcd_write_string("ADC = ");
-    lcd_write_doublebyte(adc_result);
+    lcd_write_string("X = ");
+    lcd_write_doublebyte(adc_x);
     lcd_set_ddram_addr(0x40);
-    lcd_write_string("ADC Diff = ");
-    lcd_write_doublebyte(adc_difference);
+    lcd_write_string("Y = ");
+    lcd_write_doublebyte(adc_y);
+
+    
+    if(adc_x<5||adc_x>500||adc_y<500||adc_y>3e3){ // clean up later TODO
+        // msec_delay(500);
+        if(adc_y<500)
+            return 'w';
+        if(adc_y>3e3)
+            return 's';
+        if(adc_x<5)
+            return 'a';
+        if(adc_x>1000)
+            return 'd';
+    }
+
+
+    // if(adc_result>6){
+    //     msec_delay(500);
+    //     uint16_t range = 15;
+    //     // left
+    //     if(abs(adc_result-2050)<range){
+    //         return 'a';
+    //     }else if (abs(adc_result-1685)<range) { // down
+    //         return 's';
+    //     }else if (abs(adc_result-310)<range){ // right
+    //         return 'd';
+    //     }else if (abs(adc_result-17)<range) {
+    //         return 'w';
+    //     }
+
+    // }
+
+
+    // lcd_write_string("ADC Diff = ");
+    // lcd_write_doublebyte(adc_difference);
     
     
 }
