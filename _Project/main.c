@@ -65,6 +65,8 @@ void displayMaze(const char *string);
 
 char move_joystick(void);
 
+void matrix_test(const char *string);
+
 // void run_project(void);
 
 //-----------------------------------------------------------------------------
@@ -91,9 +93,10 @@ int main(void) {
   dipsw_init();   //
   lpsw_init();    //
                   //   keypad_init();
-      
+  led_init();
+  led_enable();    
   seg7_init();
-
+  spi1_init();
   seg7_off();
 
   UART_init(115200); // trying baud rate of 115200
@@ -108,7 +111,7 @@ int main(void) {
  ADC0_init(ADC12_MEMCTL_VRSEL_VDDA_VSSA); // Initialize ADC
  config();
 
-    char maze1[] =  "       #" //  0- 7
+    char maze1[] =  "# # # # " //  0- 7
                     " # ### #" //  8-15
                     " # #   #" // 16-23
                     "   # ###" // 24-31
@@ -120,12 +123,20 @@ int main(void) {
 
     bool done = false;
     while(!done){
+        matrix_test(maze1);
+    }
+    while(!done){
         UART_write_string("\n\n Maze 1 \n\n");
         displayMaze(maze1);
         msec_delay(100);
 
+        char inputChar = ' ';
         // char inputChar = UART_in_char(); // inputted character
-        char inputChar = move_joystick();
+        do
+        {
+            inputChar = move_joystick();
+        } while(inputChar==' ');
+        
         
         switch (inputChar) {
             case 'w':
@@ -162,7 +173,6 @@ int main(void) {
             done = true;
         }
     }
-
     displayMaze(maze1);
     UART_write_string("\n\n MAZE 1 COMPLETE \n\n");
 //   while(true)
@@ -180,7 +190,8 @@ int main(void) {
 
 
 void displayMaze(const char *string) {
-    int index = 0;
+  int index = 0;
+    
   while (*string != '\0') {
     
     if(index%8==0)
@@ -197,6 +208,74 @@ void displayMaze(const char *string) {
     
   }
   UART_out_char('\n');
+
+}
+
+
+void send_spi_data(uint16_t spi_data)
+{
+    
+    spi1_write_data((uint8_t)spi_data);
+
+    uint8_t received_data = spi1_read_data();
+
+
+}
+
+void update_leds(void)
+{
+  GPIOB->DOUT31_0 |= LP_SPI_CS0_MASK;
+  msec_delay(50);
+  GPIOB->DOUT31_0 &= ~LP_SPI_CS0_MASK;
+}
+
+void matrix_test(const char *string)
+{
+
+
+        // char maze1[] =  "       #" //  0- 7
+        //             " # ### #" //  8-15
+        //             " # #   #" // 16-23
+        //             "   # ###" // 24-31
+        //             " ###    " // 32-39 END of maze here
+        //             " # # # #" // 40-47
+        //             " # ### #" // 48-55
+        //             "    #  #";// 56-63
+
+     int index = 0;
+    
+  while (*string != '\0') {
+    
+     uint8_t y = 2^((uint8_t)floor(index/8));
+    if(index%8==0){
+        // next row
+        // x7, y++
+        // turn off all LEDs and lights
+        // floor(y/8)
+        leds_off();
+        send_spi_data(y);//1<<(int)floor(index/8));
+        update_leds();
+        msec_delay(500);
+    }
+
+    // if(playerPos==index)
+    //     UART_out_char('X'); // player location
+    // else{
+
+
+        // we have a wall at 7-(index%8), floor(y/8)
+        if(*string == '#')
+            led_on(7-(index%8)); 
+
+
+    // }
+    
+    // increment index & string char
+    index++;
+    string++;
+    
+  }
+
 
 }
 
@@ -279,4 +358,9 @@ void config(void) {
 
   NVIC_SetPriority(GPIOB_INT_IRQn, 2);
   NVIC_EnableIRQ(GPIOB_INT_IRQn);
+
+  uint32_t gpio_pincm = IOMUX_PINCM_PC_CONNECTED | PINCM_GPIO_PIN_FUNC;
+  IOMUX->SECCFG.PINCM[LP_SPI_CS0_IOMUX] = gpio_pincm;
+  GPIOB->DOE31_0 |= LP_SPI_CS0_MASK;
+  GPIOB->DOUT31_0 &= ~LP_SPI_CS0_MASK;
 }
