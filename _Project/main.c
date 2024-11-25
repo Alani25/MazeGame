@@ -78,24 +78,25 @@ void matrix_test(const char *string);
 // NOTE: when possible avoid using global variables
 //-----------------------------------------------------------------------------
 
-volatile int playerPos = 24; // player position on map by default
+// default player position on the map
+volatile int playerPos = 24;
 
 
 // Define a structure to hold different data types
-
 int main(void) {
-  clock_init_40mhz();    //
-  launchpad_gpio_init(); //
+  clock_init_40mhz();
+  launchpad_gpio_init();
 
-  I2C_init(); //
+  I2C_init();
 
-  lcd1602_init(); //
-  dipsw_init();   //
-  lpsw_init();    //
-                  //   keypad_init();
+  lcd1602_init();//
+  dipsw_init(); // ?
+  lpsw_init(); // ?
+  //   keypad_init();
+
   led_init();
   led_enable();    
-  seg7_init();
+  seg7_init(); // ?
   spi1_init();
   seg7_off();
 
@@ -111,6 +112,7 @@ int main(void) {
  ADC0_init(ADC12_MEMCTL_VRSEL_VDDA_VSSA); // Initialize ADC
  config();
 
+// define maze level, for now this is for testing purposes
     char maze1[] =  "# # # # " //  0- 7
                     " # ### #" //  8-15
                     " # #   #" // 16-23
@@ -122,22 +124,26 @@ int main(void) {
     
 
     bool done = false;
-    while(!done){
+    while(!done){ // test loop for 8x8 LEDs display, REMOVE when set
         matrix_test(maze1);
     }
     while(!done){
+
+        // display maze in serial console
         UART_write_string("\n\n Maze 1 \n\n");
         displayMaze(maze1);
         msec_delay(100);
 
+        // get user inputed character based on KEYs & JOYSTICK
         char inputChar = ' ';
         // char inputChar = UART_in_char(); // inputted character
         do
         {
             inputChar = move_joystick();
         } while(inputChar==' ');
+        // TODO: Turn into an interrupt
         
-        
+        // interact with maze based on input
         switch (inputChar) {
             case 'w':
             // move up
@@ -169,16 +175,14 @@ int main(void) {
             break;
         
         }
-        if((playerPos+1)%8==0){
+        if((playerPos+1)%8==0){ // if player exits the maze
             done = true;
         }
     }
+
+    // notify user that they have completed the maze
     displayMaze(maze1);
     UART_write_string("\n\n MAZE 1 COMPLETE \n\n");
-//   while(true)
-//   {
-//     move_joystick();
-//   }
 
   
   while (1);
@@ -188,18 +192,21 @@ int main(void) {
 
 // Keep all functions below this point
 
-
+// function to display maze IN THE SERIAL CONSOLE
 void displayMaze(const char *string) {
   int index = 0;
-    
+
+// loop through entire char array
   while (*string != '\0') {
     
-    if(index%8==0)
+    // add in a new line at the end of each row
+    if(index%8==0) 
         UART_out_char('\n');
 
+    // Place in an X for player position
     if(playerPos==index)
         UART_out_char('X');
-    else
+    else // draw maze as it is
         UART_out_char(*string);
     
     // increment index & string char
@@ -211,17 +218,14 @@ void displayMaze(const char *string) {
 
 }
 
-
+// Sending data to with 75HC595
 void send_spi_data(uint16_t spi_data)
 {
-    
     spi1_write_data((uint8_t)spi_data);
-
-    uint8_t received_data = spi1_read_data();
-
-
+    uint8_t received_data = spi1_read_data(); // TODO: Is this line necessary?
 }
 
+// Update Y coordinates on 8x8 LEDs display
 void update_leds(void)
 {
   GPIOB->DOUT31_0 |= LP_SPI_CS0_MASK;
@@ -229,46 +233,47 @@ void update_leds(void)
   GPIOB->DOUT31_0 &= ~LP_SPI_CS0_MASK;
 }
 
+// display the maze on the 8x8 LEDs (788BS)
 void matrix_test(const char *string)
 {
 
-
-        // char maze1[] =  "       #" //  0- 7
-        //             " # ### #" //  8-15
-        //             " # #   #" // 16-23
-        //             "   # ###" // 24-31
-        //             " ###    " // 32-39 END of maze here
-        //             " # # # #" // 40-47
-        //             " # ### #" // 48-55
-        //             "    #  #";// 56-63
+// visual maze display for reference
+        // |# # # # |     0- 7
+        // | # ### #|     8-15
+        // | # #   #|    16-23
+        // |   # ###|    24-31
+        // | ###    |    32-39 END of maze here
+        // | # # # #|    40-47
+        // | # ### #|    48-55
+        // |    #  #|    56-63
 
      int index = 0;
+     uint8_t y = 128; // #10000000
     
   while (*string != '\0') {
     
-     uint8_t y = 2^((uint8_t)floor(index/8));
-    if(index%8==0){
-        // next row
+    //  uint8_t y = 2^((uint8_t)floor(index/8));
+    if(index%8==0){ // next row
+        // short delay BEFORE turning LEDs off, multiplexing
+        msec_delay(500);
+
         // x7, y++
-        // turn off all LEDs and lights
-        // floor(y/8)
+        // turn off all LEDs (x)
         leds_off();
+
+        // Send row info & update LEDs (y)
         send_spi_data(y);//1<<(int)floor(index/8));
         update_leds();
-        msec_delay(500);
+
+        // shift to the right for next row
+        y /= 2;
     }
 
-    // if(playerPos==index)
-    //     UART_out_char('X'); // player location
-    // else{
+    // NOTE: playerPos == index when we're at the player position
 
-
-        // we have a wall at 7-(index%8), floor(y/8)
-        if(*string == '#')
-            led_on(7-(index%8)); 
-
-
-    // }
+    // Turn on X LED if we're at a wall in row `floor(index/8)`
+    if(*string == '#')
+        led_on(7-(index%8));
     
     // increment index & string char
     index++;
@@ -279,14 +284,12 @@ void matrix_test(const char *string)
 
 }
 
+// Convert joystick readings into WASD chars for movement
 char move_joystick(void)
 {
     uint16_t adc_y = ADC0_in(7);
     uint16_t adc_x = ADC0_in(0);
     // msec_delay(25);
-
-
-
 
     // if(adc_result>2400)
     //     adc_result = adc_result - 2400; // #define the 2400 TODO
@@ -334,9 +337,9 @@ char move_joystick(void)
     // lcd_write_string("ADC Diff = ");
     // lcd_write_doublebyte(adc_difference);
     
-    
 }
 
+// Writing out simple string to serial console
 void UART_write_string(const char *string) {
   while (*string != '\0') {
     UART_out_char(*string++);
@@ -344,6 +347,7 @@ void UART_write_string(const char *string) {
 
 } /* UART_write_string */
 
+// pin configurations, necessary for ADC readings and other functionalities 
 void config(void) {
   GPIOA->POLARITY15_0 = GPIO_POLARITY15_0_DIO15_RISE;
   GPIOA->CPU_INT.ICLR = GPIO_CPU_INT_ICLR_DIO15_CLR;
