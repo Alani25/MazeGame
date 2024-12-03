@@ -64,6 +64,9 @@ char move_joystick(void);
 
 void matrix_test(const char *string);
 
+void config_pb1_interrupts(void);
+
+void config_pb2_interrupts(void);
 // void run_project(void);
 
 //-----------------------------------------------------------------------------
@@ -77,7 +80,9 @@ void matrix_test(const char *string);
 
 // default player position on the map
 volatile int playerPos = 24;
-
+volatile uint16_t counter = 0;
+bool g_pb1_pressed = false;
+bool g_pb2_pressed = false;
 // Define a structure to hold different data types
 int main(void) {
   clock_init_40mhz();
@@ -88,8 +93,9 @@ int main(void) {
   lcd1602_init(); //
   dipsw_init();   // ?
   lpsw_init();    // ?
-  //   keypad_init();
-
+                  //   keypad_init();
+  config_pb1_interrupts();
+  config_pb2_interrupts();
   led_init();
   led_enable();
   seg7_init(); // ?
@@ -109,38 +115,42 @@ int main(void) {
   config();
 
   // define maze level, for now this is for testing purposes
-  char maze1[] = "# # # # "  //  0- 7
-                 " # ### #"  //  8-15
-                 " # #   #"  // 16-23
-                 "   # ###"  // 24-31
-                 " ###    "  // 32-39 END of maze here
-                 " # # # #"  // 40-47
-                 " # ### #"  // 48-55
-                 "    #  #"; // 56-63
+  char maze1[] = "# # # # "   //  0- 7
+                 " # ### #"   //  8-15
+                 " # #   #"   // 16-23
+                 "   # ###"   // 24-31
+                 " ###    "   // 32-39 END of maze here
+                 " # # # #"   // 40-47
+                 " # ### #"   // 48-55
+                 "       # "; // 56-63
 
   bool done = false;
-  while (!done) { // test loop for 8x8 LEDs display, REMOVE when set
-    matrix_test(maze1);
-  }
+  //   while (!done) { // test loop for 8x8 LEDs display, REMOVE when set
+  //     matrix_test(maze1);
+  //     counter++;
+  //    }
   while (!done) {
-
+    matrix_test(maze1);
+    counter++;
     // display maze in serial console
     UART_write_string("\n\n Maze 1 \n\n");
     displayMaze(maze1);
-    msec_delay(100); // short delay for movement
+    // msec_delay(100); // short delay for movement
 
     // get user inputed character based on KEYs & JOYSTICK
     char inputChar = ' ';
 
     // Check for keyboard, if none clicked then check for joystick
-    if((UART0->STAT & UART_STAT_RXFE_MASK) != UART_STAT_RXFE_SET)
-        inputChar = ((char)(UART0->RXDATA));
-    else 
-        inputChar = move_joystick();
+    if ((UART0->STAT & UART_STAT_RXFE_MASK) != UART_STAT_RXFE_SET)
+      inputChar = ((char)(UART0->RXDATA));
+    else if ((counter % 8) == 0)
+      inputChar = move_joystick();
     // do{ ... } while (inputChar == ' ');
 
     // TODO: Turn into an interrupt
-
+    if(g_pb1_pressed)
+      playerPos = 24;
+    g_pb1_pressed = false;
     // interact with maze based on input
     switch (inputChar) {
     case 'w':
@@ -157,7 +167,9 @@ int main(void) {
 
     case 'd':
       // move right
-      if ((playerPos + 1) % 8 != 0 && maze1[playerPos + 1] != '#') // first check unnecessary, but goes with logic
+      if ((playerPos + 1) % 8 != 0 &&
+          maze1[playerPos + 1] !=
+              '#') // first check unnecessary, but goes with logic
         playerPos++;
       break;
 
@@ -175,13 +187,16 @@ int main(void) {
     if ((playerPos + 1) % 8 == 0) { // if player exits the maze
       done = true;
     }
+
+    
   } /* while loop, for playing the maze level */
 
   // notify user that they have completed the maze
   displayMaze(maze1);
   UART_write_string("\n\n MAZE 1 COMPLETE \n\n");
 
-  while (1);
+  while (1)
+    ;
 
 } /* main */
 
@@ -220,7 +235,7 @@ void send_spi_data(uint16_t spi_data) {
 // Update Y coordinates on 8x8 LEDs display
 void update_leds(void) {
   GPIOB->DOUT31_0 |= LP_SPI_CS0_MASK;
-  msec_delay(5);
+  msec_delay(1);
   GPIOB->DOUT31_0 &= ~LP_SPI_CS0_MASK;
 }
 
@@ -245,7 +260,7 @@ void matrix_test(const char *string) {
     //  uint8_t y = 2^((uint8_t)floor(index/8));
     if (index % 8 == 0) { // next row
       // short delay BEFORE turning LEDs off, multiplexing
-      msec_delay(5);
+      msec_delay(1);
 
       // x7, y++
       // turn off all LEDs (x)
@@ -264,7 +279,9 @@ void matrix_test(const char *string) {
     // Turn on X LED if we're at a wall in row `floor(index/8)`
     if (*string == '#')
       led_on(7 - (index % 8));
-
+    else if (playerPos == index && (counter % 8) < 4) {
+      led_on(7 - (index % 8));
+    }
     // increment index & string char
     index++;
     string++;
@@ -273,6 +290,7 @@ void matrix_test(const char *string) {
 
 // Convert joystick readings into WASD chars for movement
 char move_joystick(void) {
+
   uint16_t adc_y = ADC0_in(7);
   uint16_t adc_x = ADC0_in(0);
   // msec_delay(25);
@@ -283,12 +301,12 @@ char move_joystick(void) {
   // uint16_t adc_difference = abs(adc_result - 2400); // #define the 2400 as
   // initial position TODO
 
-  lcd_set_ddram_addr(0x00);
-  lcd_write_string("X = ");
-  lcd_write_doublebyte(adc_x);
-  lcd_set_ddram_addr(0x40);
-  lcd_write_string("Y = ");
-  lcd_write_doublebyte(adc_y);
+  //   lcd_set_ddram_addr(0x00);
+  //   lcd_write_string("X = ");
+  //   lcd_write_doublebyte(adc_x);
+  //   lcd_set_ddram_addr(0x40);
+  //   lcd_write_string("Y = ");
+  //   lcd_write_doublebyte(adc_y);
 
   if (adc_x < 5 || adc_x > 500 || adc_y < 500 ||
       adc_y > 3e3) { // clean up later TODO
@@ -332,4 +350,57 @@ void config(void) {
   IOMUX->SECCFG.PINCM[LP_SPI_CS0_IOMUX] = gpio_pincm;
   GPIOB->DOE31_0 |= LP_SPI_CS0_MASK;
   GPIOB->DOUT31_0 &= ~LP_SPI_CS0_MASK;
+}
+
+void config_pb1_interrupts(void) {
+  GPIOB->POLARITY31_16 = GPIO_POLARITY31_16_DIO18_RISE;
+  GPIOB->CPU_INT.ICLR = GPIO_CPU_INT_ICLR_DIO18_CLR;
+  GPIOB->CPU_INT.IMASK = GPIO_CPU_INT_IMASK_DIO18_SET;
+
+  NVIC_SetPriority(GPIOB_INT_IRQn, 2);
+  NVIC_EnableIRQ(GPIOB_INT_IRQn);
+}
+
+void config_pb2_interrupts(void) {
+  GPIOA->POLARITY15_0 = GPIO_POLARITY15_0_DIO15_RISE;
+  GPIOA->CPU_INT.ICLR = GPIO_CPU_INT_ICLR_DIO15_CLR;
+  GPIOA->CPU_INT.IMASK = GPIO_CPU_INT_IMASK_DIO15_SET;
+
+  NVIC_SetPriority(GPIOA_INT_IRQn, 2);
+  NVIC_EnableIRQ(GPIOA_INT_IRQn);
+}
+
+void GROUP1_IRQHandler(void) {
+  uint32_t group_iidx_status;
+  uint32_t gpio_mis;
+
+  do {
+    group_iidx_status = CPUSS->INT_GROUP[1].IIDX;
+
+    switch (group_iidx_status) {
+    case (CPUSS_INT_GROUP_IIDX_STAT_INT1):
+      gpio_mis = GPIOB->CPU_INT.MIS;
+      if ((gpio_mis & GPIO_CPU_INT_MIS_DIO18_MASK) ==
+          GPIO_CPU_INT_MIS_DIO18_SET) {
+        g_pb1_pressed = !g_pb1_pressed;
+
+        GPIOB->CPU_INT.ICLR = GPIO_CPU_INT_ICLR_DIO18_CLR;
+      }
+
+      break;
+    case (CPUSS_INT_GROUP_IIDX_STAT_INT0):
+      gpio_mis = GPIOA->CPU_INT.MIS;
+      if ((gpio_mis & GPIO_CPU_INT_MIS_DIO15_MASK) ==
+          GPIO_CPU_INT_MIS_DIO15_SET) {
+        g_pb2_pressed = true;
+
+        GPIOA->CPU_INT.ICLR = GPIO_CPU_INT_ICLR_DIO15_CLR;
+      }
+
+      break;
+
+    default:
+      break;
+    }
+  } while (group_iidx_status != 0);
 }
