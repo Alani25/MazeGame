@@ -86,7 +86,7 @@ bool g_pb2_pressed = false;
 // Define a structure to hold different data types
 int main(void) {
   clock_init_40mhz();
-  launchpad_gpio_init();
+  launchpad_gpio_init(); // 21+8
 
   I2C_init();
 
@@ -122,16 +122,63 @@ int main(void) {
                  " ###    "   // 32-39 END of maze here
                  " # # # #"   // 40-47
                  " # ### #"   // 48-55
-                 "       # "; // 56-63
+                 "    #  # "; // 56-63
 
   bool done = false;
-  //   while (!done) { // test loop for 8x8 LEDs display, REMOVE when set
-  //     matrix_test(maze1);
-  //     counter++;
-  //    }
+  bool gameMode = true;
+
+  // level number
+  uint8_t levelNum = 0;
+
+  // MAIN MENU MODE
+  lcd_clear();
+  lcd_write_string("level: ");
+  lcd_set_ddram_addr(0x40);
+  lcd_write_string("See serial menu");
+  while(!gameMode){
+    // Display level number
+    lcd_set_ddram_addr(0x07);
+    lcd_write_byte(levelNum);
+
+    UART_write_string("\n\r>>>>>  MAZE LEVEL  <<<<<\n\r");
+    UART_write_string("Use JOYSTICK to switch between levels,\n\r");
+    UART_write_string("Push button 1 to select level.\n\r\n\r");
+
+    // char buffer[8];
+    // buffer[levelNum] = '>';
+    
+    UART_write_string(" Level 0. Catacombs \n\r");
+    UART_write_string(" Level 1. Mitochondria \n\r");
+    UART_write_string(" Level 2. Flat Earth \n\r");
+    // UART_write_string(sprintf(buffer[3]," Level THREE: \n"));
+    // UART_write_string(sprintf(buffer[4]," Level FOUR: \n"));
+    // UART_write_string(sprintf(buffer[5]," Level FIVE: \n"));
+    // UART_write_string(sprintf(buffer[6]," Level SIX: \n"));
+    // UART_write_string(" Level TWO: \r");
+    UART_write_string("Selected Level: ");
+    // char buffer2 = [,'\0'];
+    UART_write_string((char*)levelNum);
+
+    msec_delay(500);
+  }
+
+
+    // lcd_clear();
+    // // Display level number
+    // lcd_write_string("Level ");
+    // lcd_write_byte(levelNum); 
+
+    // instructions for movement
+    lcd_set_ddram_addr(0x40);
+    lcd_write_string("use WASD/Joystick");
+
+  // GAME MODE
   while (!done) {
-    matrix_test(maze1);
+    // global counter to keep track of frames
     counter++;
+    
+    // matrix_test(maze1); // TODO fix wiring with master slave
+    
     // display maze in serial console
     UART_write_string("\n\n Maze 1 \n\n");
     displayMaze(maze1);
@@ -143,7 +190,7 @@ int main(void) {
     // Check for keyboard, if none clicked then check for joystick
     if ((UART0->STAT & UART_STAT_RXFE_MASK) != UART_STAT_RXFE_SET)
       inputChar = ((char)(UART0->RXDATA));
-    else if ((counter % 8) == 0)
+    else if ((counter % 20) == 0)
       inputChar = move_joystick();
     // do{ ... } while (inputChar == ' ');
 
@@ -184,23 +231,56 @@ int main(void) {
       playerPos = 24;
       break;
     }
-    if ((playerPos + 1) % 8 == 0) { // if player exits the maze
+
+    if ((playerPos + 1) % 8 == 0){ // if player exits the maze
       done = true;
     }
 
-    
+    UART_write_string("\r"); // make sure to return to send data through serial
+
   } /* while loop, for playing the maze level */
 
   // notify user that they have completed the maze
   displayMaze(maze1);
-  UART_write_string("\n\n MAZE 1 COMPLETE \n\n");
+  UART_write_string("\n\n MAZE 1 COMPLETE \n\n\r");
 
-  while (1)
-    ;
+  while (1);
 
 } /* main */
 
 // Keep all functions below this point
+
+
+
+////////////////////
+// JOYSTICK INPUT //
+////////////////////
+
+// Convert joystick readings into WASD chars for movement
+char move_joystick(void) {
+
+  uint16_t adc_y = ADC0_in(7);
+  uint16_t adc_x = ADC0_in(0);
+
+  if (adc_x < 5 || adc_x > 500 || adc_y < 500 ||
+      adc_y > 3e3) { // clean up later TODO
+    // Check adc range to return WASD direction
+    if (adc_y < 500)
+      return 'w';
+    if (adc_y > 3e3)
+      return 's';
+    if (adc_x < 5)
+      return 'a';
+    if (adc_x > 1000)
+      return 'd';
+  }
+}
+
+
+
+////////////////////
+//  DISPLAY MAZE  //
+////////////////////
 
 // function to display maze IN THE SERIAL CONSOLE
 void displayMaze(const char *string) {
@@ -225,20 +305,17 @@ void displayMaze(const char *string) {
   }
   UART_out_char('\n');
 }
-
 // Sending data to with 75HC595
 void send_spi_data(uint16_t spi_data) {
   spi1_write_data((uint8_t)spi_data);
   uint8_t received_data = spi1_read_data(); // TODO: Is this line necessary?
 }
-
 // Update Y coordinates on 8x8 LEDs display
 void update_leds(void) {
   GPIOB->DOUT31_0 |= LP_SPI_CS0_MASK;
   msec_delay(1);
   GPIOB->DOUT31_0 &= ~LP_SPI_CS0_MASK;
 }
-
 // display the maze on the 8x8 LEDs (788BS)
 void matrix_test(const char *string) {
 
@@ -288,39 +365,11 @@ void matrix_test(const char *string) {
   }
 }
 
-// Convert joystick readings into WASD chars for movement
-char move_joystick(void) {
 
-  uint16_t adc_y = ADC0_in(7);
-  uint16_t adc_x = ADC0_in(0);
-  // msec_delay(25);
 
-  // if(adc_result>2400)
-  //     adc_result = adc_result - 2400; // #define the 2400 TODO
-
-  // uint16_t adc_difference = abs(adc_result - 2400); // #define the 2400 as
-  // initial position TODO
-
-  //   lcd_set_ddram_addr(0x00);
-  //   lcd_write_string("X = ");
-  //   lcd_write_doublebyte(adc_x);
-  //   lcd_set_ddram_addr(0x40);
-  //   lcd_write_string("Y = ");
-  //   lcd_write_doublebyte(adc_y);
-
-  if (adc_x < 5 || adc_x > 500 || adc_y < 500 ||
-      adc_y > 3e3) { // clean up later TODO
-    // msec_delay(500);
-    if (adc_y < 500)
-      return 'w';
-    if (adc_y > 3e3)
-      return 's';
-    if (adc_x < 5)
-      return 'a';
-    if (adc_x > 1000)
-      return 'd';
-  }
-}
+////////////////////
+//  SERIAL WRITE  //
+////////////////////
 
 // Writing out simple string to serial console
 void UART_write_string(const char *string) {
@@ -329,6 +378,12 @@ void UART_write_string(const char *string) {
   }
 
 } /* UART_write_string */
+
+
+
+////////////////////
+//   PIN CONFIG   //
+////////////////////
 
 // pin configurations, necessary for ADC readings and other functionalities
 void config(void) {
@@ -352,6 +407,11 @@ void config(void) {
   GPIOB->DOUT31_0 &= ~LP_SPI_CS0_MASK;
 }
 
+
+////////////////////
+//   INTERRUPTS   //
+////////////////////
+
 void config_pb1_interrupts(void) {
   GPIOB->POLARITY31_16 = GPIO_POLARITY31_16_DIO18_RISE;
   GPIOB->CPU_INT.ICLR = GPIO_CPU_INT_ICLR_DIO18_CLR;
@@ -360,7 +420,6 @@ void config_pb1_interrupts(void) {
   NVIC_SetPriority(GPIOB_INT_IRQn, 2);
   NVIC_EnableIRQ(GPIOB_INT_IRQn);
 }
-
 void config_pb2_interrupts(void) {
   GPIOA->POLARITY15_0 = GPIO_POLARITY15_0_DIO15_RISE;
   GPIOA->CPU_INT.ICLR = GPIO_CPU_INT_ICLR_DIO15_CLR;
@@ -369,7 +428,6 @@ void config_pb2_interrupts(void) {
   NVIC_SetPriority(GPIOA_INT_IRQn, 2);
   NVIC_EnableIRQ(GPIOA_INT_IRQn);
 }
-
 void GROUP1_IRQHandler(void) {
   uint32_t group_iidx_status;
   uint32_t gpio_mis;
