@@ -67,11 +67,16 @@ void matrix_test(const char *string);
 void config_pb1_interrupts(void);
 
 void config_pb2_interrupts(void);
+
+void chooseLevel(char *mazeMap,uint8_t selectedLevel);
+
 // void run_project(void);
 
 //-----------------------------------------------------------------------------
 // Define symbolic constants used by the program
 //-----------------------------------------------------------------------------
+// maximum level number (can't be greater than 3)
+#define MAX_LEVEL_NUM 3
 
 //-----------------------------------------------------------------------------
 // Define global variables and structures here.
@@ -83,6 +88,8 @@ volatile int playerPos = 24;
 volatile uint16_t counter = 0;
 bool g_pb1_pressed = false;
 bool g_pb2_pressed = false;
+
+
 // Define a structure to hold different data types
 int main(void) {
   clock_init_40mhz();
@@ -114,18 +121,18 @@ int main(void) {
   ADC0_init(ADC12_MEMCTL_VRSEL_VDDA_VSSA); // Initialize ADC
   config();
 
-  // define maze level, for now this is for testing purposes
-  char maze1[] = "# # # # "   //  0- 7
-                 " # ### #"   //  8-15
-                 " # #   #"   // 16-23
-                 "   # ###"   // 24-31
-                 " ###    "   // 32-39 END of maze here
-                 " # # # #"   // 40-47
-                 " # ### #"   // 48-55
-                 "    #  # "; // 56-63
+  // DEFAULT maze level, for now this is for testing purposes
+  char mazeMap[] = "# # # # "   //  0- 7
+                   " # ### #"   //  8-15
+                   " # #   #"   // 16-23
+                   "   # ###"   // 24-31
+                   " ###    "   // 32-39 END of maze here
+                   " # # # #"   // 40-47
+                   " # ### #"   // 48-55
+                   "    #  # "; // 56-63
 
   bool done = false;
-  bool gameMode = true;
+  bool gameMode = false;
 
   // level number
   uint8_t levelNum = 0;
@@ -146,22 +153,62 @@ int main(void) {
 
     // char buffer[8];
     // buffer[levelNum] = '>';
-    
-    UART_write_string(" Level 0. Catacombs \n\r");
-    UART_write_string(" Level 1. Mitochondria \n\r");
-    UART_write_string(" Level 2. Flat Earth \n\r");
-    // UART_write_string(sprintf(buffer[3]," Level THREE: \n"));
-    // UART_write_string(sprintf(buffer[4]," Level FOUR: \n"));
-    // UART_write_string(sprintf(buffer[5]," Level FIVE: \n"));
-    // UART_write_string(sprintf(buffer[6]," Level SIX: \n"));
-    // UART_write_string(" Level TWO: \r");
-    UART_write_string("Selected Level: ");
-    // char buffer2 = [,'\0'];
-    UART_write_string((char*)levelNum);
 
+    
+    char levelNames[MAX_LEVEL_NUM][17] = {
+        "0. Catacombs", 
+        "1. Mitochondria", 
+        "2. Flat Earth"
+    };
+    
+    for (uint8_t i = 0; i < MAX_LEVEL_NUM; i++){
+        UART_write_string(levelNum == i?"\n>> Level ":"\n   Level ");
+        UART_write_string(levelNames[i]);
+    }
+
+    UART_write_string("\n\n\r");
+
+
+    // msec_delay(20);
+    // get user inputed character based on KEYs & JOYSTICK
+    char inputChar = ' ';
+
+    // delay slightly to avoid 
     msec_delay(500);
+
+    while(inputChar!='w'&&inputChar!='s'&&!g_pb1_pressed){
+        // Check for keyboard, if none clicked then check for joystick
+        // TODO turn this into a function for getting input since we use it multiple times
+        if ((UART0->STAT & UART_STAT_RXFE_MASK) != UART_STAT_RXFE_SET)
+        inputChar = ((char)(UART0->RXDATA));
+        else if ((counter % 20) == 0)
+        inputChar = move_joystick();
+    }
+    switch(inputChar){
+        case 'w':
+        if(levelNum>0)
+            levelNum--;
+        break;
+
+        case 's':
+        if(levelNum<MAX_LEVEL_NUM-1)
+            levelNum++;
+        break;
+
+        default: // user pressed pb1
+        gameMode = true;
+
+    }
+
   }
 
+
+
+
+  // SELECT LEVEL
+  // define maze level, for now this is for testing purposes
+//   char mazeMap[67];
+  chooseLevel(mazeMap, levelNum);
 
     // lcd_clear();
     // // Display level number
@@ -177,11 +224,11 @@ int main(void) {
     // global counter to keep track of frames
     counter++;
     
-    // matrix_test(maze1); // TODO fix wiring with master slave
+    matrix_test(mazeMap); // TODO fix wiring with master slave
     
     // display maze in serial console
     UART_write_string("\n\n Maze 1 \n\n");
-    displayMaze(maze1);
+    displayMaze(mazeMap);
     // msec_delay(100); // short delay for movement
 
     // get user inputed character based on KEYs & JOYSTICK
@@ -194,7 +241,6 @@ int main(void) {
       inputChar = move_joystick();
     // do{ ... } while (inputChar == ' ');
 
-    // TODO: Turn into an interrupt
     if(g_pb1_pressed)
       playerPos = 24;
     g_pb1_pressed = false;
@@ -202,27 +248,27 @@ int main(void) {
     switch (inputChar) {
     case 'w':
       // move up
-      if (playerPos > 7 && maze1[playerPos - 8] != '#')
+      if (playerPos > 7 && mazeMap[playerPos - 8] != '#')
         playerPos -= 8;
       break;
 
     case 's':
       // move down
-      if (playerPos < 56 && maze1[playerPos + 8] != '#')
+      if (playerPos < 56 && mazeMap[playerPos + 8] != '#')
         playerPos += 8;
       break;
 
     case 'd':
       // move right
       if ((playerPos + 1) % 8 != 0 &&
-          maze1[playerPos + 1] !=
+          mazeMap[playerPos + 1] !=
               '#') // first check unnecessary, but goes with logic
         playerPos++;
       break;
 
     case 'a':
       // move left
-      if (playerPos % 8 != 0 && maze1[playerPos - 1] != '#')
+      if (playerPos % 8 != 0 && mazeMap[playerPos - 1] != '#')
         playerPos--;
       break;
 
@@ -241,7 +287,7 @@ int main(void) {
   } /* while loop, for playing the maze level */
 
   // notify user that they have completed the maze
-  displayMaze(maze1);
+  displayMaze(mazeMap);
   UART_write_string("\n\n MAZE 1 COMPLETE \n\n\r");
 
   while (1);
@@ -251,6 +297,66 @@ int main(void) {
 // Keep all functions below this point
 
 
+void chooseLevel(char *mazeMap, uint8_t selectedLevel){ 
+    switch(selectedLevel){
+        case 0: // catacombs
+        mazeMap =   "# # # # "   //  0- 7
+                    " # ### #"   //  8-15
+                    " # #   #"   // 16-23
+                    "   # ###"   // 24-31
+                    " ###    "   // 32-39 END of maze here
+                    " #   # #"   // 40-47
+                    " # ### #"   // 48-55
+                    "    #  # "; // 56-63
+        break;
+
+        case 1: // mitochondria
+        mazeMap =   " # # # #"   //  0- 7
+                    "   #   #"   //  8-15
+                    " # # # #"   // 16-23
+                    " # # # #"   // 24-31
+                    " # # # #"   // 32-39 END of maze here
+                    " # # # #"   // 40-47
+                    " # # #  "   // 48-55
+                    " #   # # "; // 56-63
+        break;
+
+        case 2: // flat earth
+        mazeMap =   "       #"   //  0- 7
+                    "       #"   //  8-15
+                    "       #"   // 16-23
+                    "       #"   // 24-31
+                    "       #"   // 32-39 END of maze here
+                    "       #"   // 40-47
+                    "        "   // 48-55
+                    "######## "; // 56-63
+        break;
+
+        case 3:
+        mazeMap =   "       #"   //  0- 7
+                    " #   # #"   //  8-15
+                    " #   # #"   // 16-23
+                    "        "   // 24-31
+                    " #   # #"   // 32-39 END of maze here
+                    " ##### #"   // 40-47
+                    "       #"   // 48-55
+                    "######## "; // 56-63
+        break;
+
+        default:
+        mazeMap =   "#      #"   //  0- 7
+                    " # ### #"   //  8-15
+                    " # #   #"   // 16-23
+                    "   # ###"   // 24-31
+                    " ###    "   // 32-39 END of maze here
+                    " #   # #"   // 40-47
+                    " ##### #"   // 48-55
+                    "    #  # "; // 56-63
+        
+    }
+}
+
+                
 
 ////////////////////
 // JOYSTICK INPUT //
@@ -308,7 +414,7 @@ void displayMaze(const char *string) {
 // Sending data to with 75HC595
 void send_spi_data(uint16_t spi_data) {
   spi1_write_data((uint8_t)spi_data);
-  uint8_t received_data = spi1_read_data(); // TODO: Is this line necessary?
+  uint8_t received_data = spi1_read_data(); // TODO: Is this line necessary? DONE: Yes it is, plz keep
 }
 // Update Y coordinates on 8x8 LEDs display
 void update_leds(void) {
