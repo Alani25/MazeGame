@@ -18,3 +18,18 @@ In addition, we will have a DC motor spin when the player moves into a wall to m
 <br>This concept is also inspired by the vibration mechanic on console controllers, which also uses two motors.
 <br>When the player reaches the end of the maze, they will return to the main menu. The player can also click push __**button 1** to return to the _main menu_,__ or push __**button 2** to _reset_ the maze__ level while playing the maze.
 <br>In addition, while the serial console will provide instructions in more details, it will also be used to display the current maze level, and work as a second movement controller with <kbd>W</kbd>, <kbd>A</kbd>, <kbd>S</kbd>, <kbd>D</kbd> keyboard inputs for moving the player up, left, down, and right accordingly.
+
+# node app.js
+For the node javascript files, remember to run these commands when you first download:
+```
+npm install ws
+npm install serialport
+```
+This allows you to communicate with a websocket (ws) server and serial port.
+<br>Then running
+```
+node app.js
+```
+Is all that's left.
+
+So to explain the process, the node js code communicates with the serial port and sends the data through a websocket server, which the html file recieves and communicates with.
