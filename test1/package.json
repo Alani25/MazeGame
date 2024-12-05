@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "serialport": "^12.0.0",
+    "ws": "^8.17.0"
+  },
+  "name": "test1",
+  "version": "1.0.0",
+  "main": "app.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
