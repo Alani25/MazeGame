@@ -70,6 +70,7 @@ void config_pb2_interrupts(void);
 
 void chooseLevel(char *mazeMap,uint8_t selectedLevel);
 
+bool playGame(const char *maze);
 // void run_project(void);
 
 //-----------------------------------------------------------------------------
@@ -122,8 +123,8 @@ int main(void) {
   config();
 
   // DEFAULT maze level, for now this is for testing purposes
-  char mazeMap[] = "# # # # "   //  0- 7
-                   " # ### #"   //  8-15
+  char mazeMap[] = "# #    #"   //  0- 7
+                   " #  ## #"   //  8-15
                    " # #   #"   // 16-23
                    "   # ###"   // 24-31
                    " ###    "   // 32-39 END of maze here
@@ -220,15 +221,42 @@ int main(void) {
     lcd_write_string("use WASD/Joystick");
 
   // GAME MODE
+  bool win = playGame(mazeMap);
+
+  // notify user that they have completed the maze
+  displayMaze(mazeMap);
+  if(win)
+  {
+    UART_write_string("\n\n MAZE 1 COMPLETE \n\n\r");
+  }
+  else {
+  UART_write_string("\n\n DEFEAT \n\n\r");
+  }
+
+  while (1);
+
+} /* main */
+
+// Keep all functions below this point
+
+
+/////////////////////
+//    GAMEPLAY     //
+/////////////////////
+bool playGame(const char *maze)
+{
+    bool done = false;
+    // GAME MODE
   while (!done) {
     // global counter to keep track of frames
     counter++;
     
-    matrix_test(mazeMap); // TODO fix wiring with master slave
+    // matrix_test(maze1); // TODO fix wiring with master slave
     
     // display maze in serial console
     UART_write_string("\n\n Maze 1 \n\n");
-    displayMaze(mazeMap);
+    displayMaze(maze);
+    matrix_test(maze);
     // msec_delay(100); // short delay for movement
 
     // get user inputed character based on KEYs & JOYSTICK
@@ -241,6 +269,7 @@ int main(void) {
       inputChar = move_joystick();
     // do{ ... } while (inputChar == ' ');
 
+    // TODO: Turn into an interrupt
     if(g_pb1_pressed)
       playerPos = 24;
     g_pb1_pressed = false;
@@ -248,27 +277,27 @@ int main(void) {
     switch (inputChar) {
     case 'w':
       // move up
-      if (playerPos > 7 && mazeMap[playerPos - 8] != '#')
+      if (playerPos > 7 && maze[playerPos - 8] != '#')
         playerPos -= 8;
       break;
 
     case 's':
       // move down
-      if (playerPos < 56 && mazeMap[playerPos + 8] != '#')
+      if (playerPos < 56 && maze[playerPos + 8] != '#')
         playerPos += 8;
       break;
 
     case 'd':
       // move right
       if ((playerPos + 1) % 8 != 0 &&
-          mazeMap[playerPos + 1] !=
+          maze[playerPos + 1] !=
               '#') // first check unnecessary, but goes with logic
         playerPos++;
       break;
 
     case 'a':
       // move left
-      if (playerPos % 8 != 0 && mazeMap[playerPos - 1] != '#')
+      if (playerPos % 8 != 0 && maze[playerPos - 1] != '#')
         playerPos--;
       break;
 
@@ -278,24 +307,24 @@ int main(void) {
       break;
     }
 
-    if ((playerPos + 1) % 8 == 0){ // if player exits the maze
+    if ((playerPos + 1) % 8 == 0){ // if player exits the maze or pb 2 pressed end loop
       done = true;
+      return true;
+    }
+    else if(g_pb2_pressed){
+      g_pb2_pressed = false;
+      done = true;
+      return false;
     }
 
     UART_write_string("\r"); // make sure to return to send data through serial
 
   } /* while loop, for playing the maze level */
+}
 
-  // notify user that they have completed the maze
-  displayMaze(mazeMap);
-  UART_write_string("\n\n MAZE 1 COMPLETE \n\n\r");
-
-  while (1);
-
-} /* main */
-
-// Keep all functions below this point
-
+/////////////////////
+//  LEVEL SELECT   //
+/////////////////////
 
 void chooseLevel(char *mazeMap, uint8_t selectedLevel){ 
     switch(selectedLevel){
