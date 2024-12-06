@@ -72,6 +72,20 @@ bool playGame(const char *maze);
 
 void mainMenu(void);
 
+/*
+TODO
+
+- Move switch case statement from choose level function into main loop
+- remove choose level
+
+DONE
+- turn levelNum into global variable
+- create main menu function (prototype DONE)
+
+
+
+*/
+
 //-----------------------------------------------------------------------------
 // Define symbolic constants used by the program
 //-----------------------------------------------------------------------------
@@ -150,20 +164,31 @@ int main(void) {
 
   bool done = false;
 
-  // MAIN MENU MODE
-  // Display main meny until a level is selected
-  mainMenu();
+  while(!done){
+    // MAIN MENU MODE
+    // Display main meny until a level is selected
+    mainMenu();
 
-  // GAME MODE 
-  bool win = playGame(mazeMap[levelNum]);
-  // notify user that they have completed the maze
-  if (win){ 
-    UART_write_string("\n\r\n\r MAZE 1 COMPLETE \n\r\n\r");
-  } else {
-    UART_write_string("\n\r\n\r DEFEAT \n\r\n\r");
+    // GAME MODE 
+    bool win = playGame(mazeMap[levelNum]);
+    // notify user that they have completed the maze
+    lcd_clear();
+    if (win){ 
+        UART_write_string("\n\r\n\r MAZE 1 COMPLETE \n\r\n\r");
+        lcd_write_string("Maze Complete :D");
+    } else {
+        UART_write_string("\n\r\n\r DEFEAT \n\r\n\r");
+        lcd_write_string("YOU GAVE UP :(");
+    }
+    // Note: since win variable is used once, we don't need to create variable
+    // can just write if(playGame(mazeMap)) but that might be "bad code practice"
+
+    lcd_set_ddram_addr(0x40);
+    lcd_write_string("Press 2: MENU");
+    while(!g_pb2_pressed); // wait for push button 1 to restart
+
   }
-  // Note: since win variable is used once, we don't need to create variable
-  // can just write if(playGame(mazeMap)) but that might be "bad code practice"
+
 
   while (1);
 
