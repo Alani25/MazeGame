@@ -70,6 +70,8 @@ void config_pb2_interrupts(void);
 
 bool playGame(const char *maze);
 
+void buzzer(void);
+
 void mainMenu(void);
 
 /*
@@ -114,6 +116,7 @@ int main(void) {
   clock_init_40mhz();
   launchpad_gpio_init();
   I2C_init();
+  lp_leds_init();
   lcd1602_init(); //
   dipsw_init();   // ?
   lpsw_init();    // ?
@@ -176,6 +179,7 @@ int main(void) {
     if (win){ 
         UART_write_string("\n\r\n\r MAZE 1 COMPLETE \n\r\n\r");
         lcd_write_string("Maze Complete :D");
+        buzzer();
     } else {
         UART_write_string("\n\r\n\r DEFEAT \n\r\n\r");
         lcd_write_string("YOU GAVE UP :(");
@@ -461,6 +465,15 @@ void matrix_test(const char *string) {
     string++;
   }
 }
+
+////////////////////
+//     BUZZER     //
+////////////////////
+void buzzer(void)
+{
+  lp_leds_on(LP_RGB_BLU_PORT); //Buzzer input at port 22, same port used for the lp_rgb_blu
+}
+
 
 ////////////////////
 //  SERIAL WRITE  //
