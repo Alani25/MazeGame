@@ -117,6 +117,9 @@ int main(void) {
   launchpad_gpio_init();
   I2C_init();
   lp_leds_init();
+  motor0_init();
+  motor0_pwm_init(4000, 0);
+  motor0_pwm_enable();
   lcd1602_init(); //
   dipsw_init();   // ?
   lpsw_init();    // ?
@@ -236,7 +239,7 @@ void mainMenu(void) {
     UART_write_string("\n\r\n\r");
 
     // delay slightly to avoid counting input as double
-    msec_delay(500);
+    msec_delay(250);
 
     // get user inputed character based on KEYs & JOYSTICK
     char inputChar = ' ';
@@ -246,7 +249,7 @@ void mainMenu(void) {
       // multiple times Check for keyboard
       if ((UART0->STAT & UART_STAT_RXFE_MASK) != UART_STAT_RXFE_SET)
         inputChar = ((char)(UART0->RXDATA));
-      else if ((counter % 20) == 0) // if not keyboard then check joystick
+      else if ((counter % 15) == 0) // if not keyboard then check joystick
         inputChar = move_joystick();
     }
     // Act based on the input
@@ -276,7 +279,7 @@ bool playGame(const char *maze) {
   lcd_write_string("Press 1: RESTART");
   lcd_set_ddram_addr(0x40);
   lcd_write_string("Press 2: QUIT");
-
+  g_pb2_pressed = false;
   bool done = false;
   // GAME MODE
   while (!done) {
@@ -297,7 +300,7 @@ bool playGame(const char *maze) {
     // Check for keyboard, if none clicked then check for joystick
     if ((UART0->STAT & UART_STAT_RXFE_MASK) != UART_STAT_RXFE_SET)
       inputChar = ((char)(UART0->RXDATA));
-    else if ((counter % 20) == 0)
+    else if ((counter % 15) == 0)
       inputChar = move_joystick();
     // do{ ... } while (inputChar == ' ');
 
@@ -311,12 +314,16 @@ bool playGame(const char *maze) {
       // move up
       if (playerPos > 7 && maze[playerPos - 8] != '#')
         playerPos -= 8;
+      else
+        buzzer();
       break;
 
     case 's':
       // move down
       if (playerPos < 56 && maze[playerPos + 8] != '#')
         playerPos += 8;
+      else
+        buzzer();
       break;
 
     case 'd':
@@ -325,12 +332,16 @@ bool playGame(const char *maze) {
           maze[playerPos + 1] !=
               '#') // first check unnecessary, but goes with logic
         playerPos++;
+      else
+        buzzer();
       break;
 
     case 'a':
       // move left
       if (playerPos % 8 != 0 && maze[playerPos - 1] != '#')
         playerPos--;
+     else
+        buzzer();
       break;
 
     case 'r':
@@ -471,7 +482,14 @@ void matrix_test(const char *string) {
 ////////////////////
 void buzzer(void)
 {
-  lp_leds_on(LP_RGB_BLU_PORT); //Buzzer input at port 22, same port used for the lp_rgb_blu
+  
+  lp_leds_on(LP_RGB_BLU_LED_IDX);
+  msec_delay(100);
+  lp_leds_off(LP_RGB_BLU_LED_IDX);
+  msec_delay(100);
+  lp_leds_on(LP_RGB_BLU_LED_IDX);
+  msec_delay(100);
+  lp_leds_off(LP_RGB_BLU_LED_IDX);
 }
 
 
