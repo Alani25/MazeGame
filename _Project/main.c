@@ -72,6 +72,10 @@ bool playGame(const char *maze);
 
 void buzzer(void);
 
+void gameComplete(bool win);
+
+void animation(bool win);
+
 void mainMenu(void);
 
 /*
@@ -93,7 +97,8 @@ DONE
 //-----------------------------------------------------------------------------
 // maximum level number (can't be greater than 3)
 #define MAX_LEVEL_NUM 3
-
+#define FRAME_REPEAT 25
+#define ARRAY_Y_BOUNDS 66
 //-----------------------------------------------------------------------------
 // Define global variables and structures here.
 // NOTE: when possible avoid using global variables
@@ -117,12 +122,9 @@ int main(void) {
   launchpad_gpio_init();
   I2C_init();
   lp_leds_init();
-  motor0_init();
-  motor0_pwm_init(4000, 0);
-  motor0_pwm_enable();
+  
   lcd1602_init(); //
   dipsw_init();   // ?
-  lpsw_init();    // ?
   config_pb1_interrupts();
   config_pb2_interrupts();
   led_init();
@@ -135,16 +137,16 @@ int main(void) {
   config(); // pin configurations
 
   // all maze levels
-  char mazeMap[][66] = {
-    // level 0.  Catacombs
-    "# #    #"   //  0- 7
-    " #  ## #"   //  8-15
-    " # #   #"   // 16-23
-    "   # ###"   // 24-31
-    " ###    "   // 32-39 END of maze here
-    " # # # #"   // 40-47
-    " # ### #"   // 48-55
-    "    #  # ", // 56-63
+  char mazeMap[][ARRAY_Y_BOUNDS] = {
+    // level 0.  Flat Earth
+    "       #"   //  0- 7
+    "       #"   //  8-15
+    "       #"   // 16-23
+    "       #"   // 24-31
+    "       #"   // 32-39 END of maze here
+    "       #"   // 40-47
+    "        "   // 48-55
+    "######## ", // 56-63
 
     // level 1.  Mitochondria
     " # # # #"   //  0- 7
@@ -156,15 +158,16 @@ int main(void) {
     " # # #  "   // 48-55 END of maze here
     " #   # # ", // 56-63
 
-    // level 2.  Flat Earth
-    "       #"   //  0- 7
-    "       #"   //  8-15
-    "       #"   // 16-23
-    "       #"   // 24-31
-    "       #"   // 32-39 END of maze here
-    "       #"   // 40-47
-    "        "   // 48-55
-    "######## " // 56-63
+    // level 2.  Catacombs
+    "# #    #"   //  0- 7
+    " #  ## #"   //  8-15
+    " # #   #"   // 16-23
+    "   # ###"   // 24-31
+    " ###    "   // 32-39 END of maze here
+    " # # # #"   // 40-47
+    " # ### #"   // 48-55
+    "    #  # " // 56-63
+
   }; 
     
 
@@ -174,19 +177,12 @@ int main(void) {
     // MAIN MENU MODE
     // Display main meny until a level is selected
     mainMenu();
-
+    playerPos = 24;
     // GAME MODE 
     bool win = playGame(mazeMap[levelNum]);
     // notify user that they have completed the maze
-    lcd_clear();
-    if (win){ 
-        UART_write_string("\n\r\n\r MAZE 1 COMPLETE \n\r\n\r");
-        lcd_write_string("Maze Complete :D");
-        buzzer();
-    } else {
-        UART_write_string("\n\r\n\r DEFEAT \n\r\n\r");
-        lcd_write_string("YOU GAVE UP :(");
-    }
+    gameComplete(win);
+    animation(win);
     // Note: since win variable is used once, we don't need to create variable
     // can just write if(playGame(mazeMap)) but that might be "bad code practice"
 
@@ -228,7 +224,7 @@ void mainMenu(void) {
 
     // define level names here
     char levelNames[MAX_LEVEL_NUM][20] = // make sure to adjust max length based on names
-    { "0. Catacombs\n\r", "1. Mitochondria\n\r", "2. Flat Earth\n\r" };
+    {  "0. Flat Earth\n\r", "1. Mitochondria\n\r", "2. Catacombs\n\r"};
 
     // display all levels in serial console
     for (uint8_t i = 0; i < MAX_LEVEL_NUM; i++) {
@@ -365,6 +361,19 @@ bool playGame(const char *maze) {
   } /* while loop, for playing the maze level */
 }
 
+void gameComplete(bool win)
+{
+    lcd_clear();
+    if (win){ 
+        UART_write_string("\n\r\n\r  MAZE COMPLETE  \n\r\n\r");
+        lcd_write_string("Maze Complete :D");
+    } else {
+        UART_write_string("\n\r\n\r DEFEAT \n\r\n\r");
+        lcd_write_string("YOU GAVE UP :(");
+    }
+}
+
+
 ////////////////////
 // JOYSTICK INPUT //
 ////////////////////
@@ -482,7 +491,6 @@ void matrix_test(const char *string) {
 ////////////////////
 void buzzer(void)
 {
-  
   lp_leds_on(LP_RGB_BLU_LED_IDX);
   msec_delay(100);
   lp_leds_off(LP_RGB_BLU_LED_IDX);
@@ -492,6 +500,152 @@ void buzzer(void)
   lp_leds_off(LP_RGB_BLU_LED_IDX);
 }
 
+
+
+////////////////////
+//   ANIMATION    //
+////////////////////
+void animation(bool win)
+{
+    playerPos = 65;
+  char framesWin[][ARRAY_Y_BOUNDS] = {
+    
+    "########"   //  0- 7
+    "#      #"   //  8-15
+    "#      #"   // 16-23
+    "#      #"   // 24-31
+    "#      #"   // 32-39 END of maze here
+    "#      #"   // 40-47
+    "#      #"   // 48-55
+    "######## ", // 56-63
+
+    
+    "        "   //  0- 7
+    " ###### "   //  8-15
+    " #    # "   // 16-23
+    " #    # "   // 24-31
+    " #    # "   // 32-39 END of maze here
+    " #    # "   // 40-47
+    " ###### "   // 48-55
+    "         ", // 56-63
+
+    
+    "        "   //  0- 7
+    "        "   //  8-15
+    "  ####  "   // 16-23
+    "  #  #  "   // 24-31
+    "  #  #  "   // 32-39 END of maze here
+    "  ####  "   // 40-47
+    "        "   // 48-55
+    "         ", // 56-63
+    
+
+    "        "   //  0- 7
+    "        "   //  8-15
+    "        "   // 16-23
+    "   ##   "   // 24-31
+    "   ##   "   // 32-39 END of maze here
+    "        "   // 40-47
+    "        "   // 48-55
+    "         ", // 56-63
+    
+
+    "        "   //  0- 7
+    "        "   //  8-15
+    "        "   // 16-23
+    "        "   // 24-31
+    "        "   // 32-39 END of maze here
+    "        "   // 40-47
+    "        "   // 48-55
+    "         ", // 56-63
+
+    "  #  #  "   //  0- 7
+    "  #  #  "   //  8-15
+    "  #  #  "   // 16-23
+    "        "   // 24-31
+    " #    # "   // 32-39 END of maze here
+    " #    # "   // 40-47
+    " ###### "   // 48-55
+    "         " // 56-63
+  }; 
+
+  char framesLose[][ARRAY_Y_BOUNDS] = {
+    
+    "########"   //  0- 7
+    "#      #"   //  8-15
+    "#      #"   // 16-23
+    "#      #"   // 24-31
+    "#      #"   // 32-39 END of maze here
+    "#      #"   // 40-47
+    "#      #"   // 48-55
+    "######## ", // 56-63
+
+    
+    "        "   //  0- 7
+    " ###### "   //  8-15
+    " #    # "   // 16-23
+    " #    # "   // 24-31
+    " #    # "   // 32-39 END of maze here
+    " #    # "   // 40-47
+    " ###### "   // 48-55
+    "         ", // 56-63
+
+    
+    "        "   //  0- 7
+    "        "   //  8-15
+    "  ####  "   // 16-23
+    "  #  #  "   // 24-31
+    "  #  #  "   // 32-39 END of maze here
+    "  ####  "   // 40-47
+    "        "   // 48-55
+    "         ", // 56-63
+    
+
+    "        "   //  0- 7
+    "        "   //  8-15
+    "        "   // 16-23
+    "   ##   "   // 24-31
+    "   ##   "   // 32-39 END of maze here
+    "        "   // 40-47
+    "        "   // 48-55
+    "         ", // 56-63
+    
+
+    "        "   //  0- 7
+    "        "   //  8-15
+    "        "   // 16-23
+    "        "   // 24-31
+    "        "   // 32-39 END of maze here
+    "        "   // 40-47
+    "        "   // 48-55
+    "         ", // 56-63
+
+    "  #  #  "   //  0- 7
+    "  #  #  "   //  8-15
+    "  #  #  "   // 16-23
+    "        "   // 24-31
+    " ###### "   // 32-39 END of maze here
+    " #    # "   // 40-47
+    " #    # "   // 48-55
+    "         " // 56-63
+  };
+
+  if(win)
+  {
+    for(uint8_t i = 0; i <((sizeof(framesWin)/ARRAY_Y_BOUNDS) *FRAME_REPEAT);i++)
+    {
+      matrix_test(framesWin[(i/FRAME_REPEAT)]);
+    }
+  }
+  else {
+    for(uint8_t i = 0; i <((sizeof(framesLose)/ARRAY_Y_BOUNDS) *FRAME_REPEAT);i++)
+    {
+      lp_leds_on(LP_RGB_BLU_LED_IDX);
+      matrix_test(framesLose[(i/FRAME_REPEAT)]);
+      lp_leds_off(LP_RGB_BLU_LED_IDX);
+    }
+  }
+}
 
 ////////////////////
 //  SERIAL WRITE  //
