@@ -104,24 +104,9 @@ bool g_pb2_pressed = false;
 
 // Define a structure to hold different data types
 int main(void) {
-  // defaul, setup
-  clock_init_40mhz();
-  launchpad_gpio_init();
-  I2C_init();
-  lp_leds_init();
+  // default, setup
   
-  lcd1602_init(); //
-  dipsw_init();   // ?
-  config_pb1_interrupts();
-  config_pb2_interrupts();
-  led_init();
-  led_enable();
-  seg7_init(); // ?
-  spi1_init();
-  seg7_off();
-  UART_init(115200); // baud rate of 115200
-  ADC0_init(ADC12_MEMCTL_VRSEL_VDDA_VSSA); // Initialize ADC
-  config(); // pin configurations
+  config(); // intializes all components and pin configurations
 
   // all maze levels
   char mazeMap[][ARRAY_Y_BOUNDS] = {
@@ -170,12 +155,10 @@ int main(void) {
     // notify user that they have completed the maze
     gameComplete(win);
     animation(win);
-    // Note: since win variable is used once, we don't need to create variable
-    // can just write if(playGame(mazeMap)) but that might be "bad code practice"
 
     lcd_set_ddram_addr(0x40);
     lcd_write_string("Press 2: MENU");
-    while(!g_pb2_pressed); // wait for push button 1 to restart
+    while(!g_pb2_pressed); // wait for push button 2 to restart
 
   }
 
@@ -232,7 +215,7 @@ void mainMenu(void) {
       // multiple times Check for keyboard
       if ((UART0->STAT & UART_STAT_RXFE_MASK) != UART_STAT_RXFE_SET)
         inputChar = ((char)(UART0->RXDATA));
-      else if ((counter % 15) == 0) // if not keyboard then check joystick
+      else //if ((counter % 15) == 0) // if not keyboard then check joystick
         inputChar = move_joystick();
     }
     // Act based on the input
@@ -384,6 +367,8 @@ char move_joystick(void) {
       return 'a';
     if (adc_x > 1000)
       return 'd';
+    else
+      return ' ';
   }
 }
 
@@ -657,6 +642,22 @@ void UART_write_string(const char *string) {
 
 // pin configurations, necessary for ADC readings and other functionalities
 void config(void) {
+  clock_init_40mhz();
+  launchpad_gpio_init();
+  I2C_init();
+  lp_leds_init();
+  
+  lcd1602_init(); //
+  dipsw_init();   // ?
+  config_pb1_interrupts();
+  config_pb2_interrupts();
+  led_init();
+  led_enable();
+  seg7_init(); // ?
+  spi1_init();
+  seg7_off();
+  UART_init(115200); // baud rate of 115200
+  ADC0_init(ADC12_MEMCTL_VRSEL_VDDA_VSSA); // Initialize ADC
   GPIOA->POLARITY15_0 = GPIO_POLARITY15_0_DIO15_RISE;
   GPIOA->CPU_INT.ICLR = GPIO_CPU_INT_ICLR_DIO15_CLR;
   GPIOA->CPU_INT.IMASK = GPIO_CPU_INT_IMASK_DIO15_SET;
