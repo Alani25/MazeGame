@@ -78,20 +78,6 @@ void animation(bool win);
 
 void mainMenu(void);
 
-/*
-TODO
-
-- Move switch case statement from choose level function into main loop
-- remove choose level
-
-DONE
-- turn levelNum into global variable
-- create main menu function (prototype DONE)
-
-
-
-*/
-
 //-----------------------------------------------------------------------------
 // Define symbolic constants used by the program
 //-----------------------------------------------------------------------------
@@ -99,6 +85,7 @@ DONE
 #define MAX_LEVEL_NUM 3
 #define FRAME_REPEAT 25
 #define ARRAY_Y_BOUNDS 66
+#define SERIAL_DELIMITER "-"
 //-----------------------------------------------------------------------------
 // Define global variables and structures here.
 // NOTE: when possible avoid using global variables
@@ -220,7 +207,7 @@ void mainMenu(void) {
     // Display
     UART_write_string("\n\r>>>>>  MAZE LEVEL  <<<<<\n\r");
     UART_write_string("Use JOYSTICK to switch between levels,\n\r");
-    UART_write_string("Push button 1 to select level.\n\r\n\r");
+    UART_write_string("Push button 1 to select level.\n\n\r");
 
     // define level names here
     char levelNames[MAX_LEVEL_NUM][20] = // make sure to adjust max length based on names
@@ -231,8 +218,8 @@ void mainMenu(void) {
       UART_write_string(levelNum == i ? ">> Level " : "   Level ");
       UART_write_string(levelNames[i]);
     }
-    // keep this here, 3 enters send to serial
-    UART_write_string("\n\r\n\r");
+    // keep this here, point to send data to serial
+    UART_write_string(SERIAL_DELIMITER);
 
     // delay slightly to avoid counting input as double
     msec_delay(250);
@@ -266,6 +253,7 @@ void mainMenu(void) {
   } /* while loop for main menu interaction */
 } /* main menu function ends here */
 
+
 /////////////////////
 //    GAMEPLAY     //
 /////////////////////
@@ -282,17 +270,14 @@ bool playGame(const char *maze) {
     // global counter to keep track of frames
     counter++;
 
-    // matrix_test(maze1); // TODO fix wiring with master slave 
-
-    // display maze in serial console
-    // UART_write_string("\n\r\n\r Maze 1 \n\r");
-    // TODO: Combine these two functions into one (I'll do this later)
+    // TODO: Rename these two functions to make them easier to tell apart
     displayMaze(maze); // display maze in serial console
     matrix_test(maze); // display maze on 8x8 LEDs
 
     // get user inputed character based on KEYs & JOYSTICK
     char inputChar = ' ';
 
+    // TODO: Create "getInput" function with serial & joystick
     // Check for keyboard, if none clicked then check for joystick
     if ((UART0->STAT & UART_STAT_RXFE_MASK) != UART_STAT_RXFE_SET)
       inputChar = ((char)(UART0->RXDATA));
@@ -300,10 +285,11 @@ bool playGame(const char *maze) {
       inputChar = move_joystick();
     // do{ ... } while (inputChar == ' ');
 
-    // TODO: Turn into an interrupt
+    // Reset player position on pb1 press
     if (g_pb1_pressed)
       playerPos = 24;
     g_pb1_pressed = false;
+
     // interact with maze based on input
     switch (inputChar) {
     case 'w':
@@ -346,9 +332,9 @@ bool playGame(const char *maze) {
       break;
     }
 
-    if ((playerPos + 1) % 8 ==
-        0) { // if player exits the maze or pb 2 pressed end loop
-      done = true;
+    // if player exits the maze or pb 2 pressed end loop
+    if ((playerPos + 1) % 8 == 0) { 
+      done = true; // NOTE: is this line useless? YES. The return already breaks the loop.
       return true;
     } else if (g_pb2_pressed) {
       g_pb2_pressed = false;
@@ -356,13 +342,14 @@ bool playGame(const char *maze) {
       return false;
     }
 
-    UART_write_string("\n\r"); // make sure to return to send data through serial
+    UART_write_string(SERIAL_DELIMITER); // make sure to return to send data through serial
 
   } /* while loop, for playing the maze level */
-}
+} /* playGame function */
 
 void gameComplete(bool win)
 {
+    // Send post game message
     lcd_clear();
     if (win){ 
         UART_write_string("\n\r\n\r  MAZE COMPLETE  \n\r\n\r");
@@ -371,6 +358,8 @@ void gameComplete(bool win)
         UART_write_string("\n\r\n\r DEFEAT \n\r\n\r");
         lcd_write_string("YOU GAVE UP :(");
     }
+    // make sure serial data reaches browser interface
+    UART_write_string(SERIAL_DELIMITER);
 }
 
 
@@ -423,7 +412,7 @@ void displayMaze(const char *string) {
     index++;
     string++;
   }
-  UART_write_string("\n\r\n\r\n\r");
+//   UART_write_string("\n\r\n\r\n\r");
 }
 // Sending data to with 75HC595
 void send_spi_data(uint16_t spi_data) {
@@ -491,6 +480,9 @@ void matrix_test(const char *string) {
 ////////////////////
 void buzzer(void)
 {
+  // notify serial of buzzer on
+  UART_write_string("!");
+  
   lp_leds_on(LP_RGB_BLU_LED_IDX);
   msec_delay(100);
   lp_leds_off(LP_RGB_BLU_LED_IDX);
