@@ -1,9 +1,9 @@
 //*****************************************************************************
 //*****************************    C Source Code    ***************************
 //*****************************************************************************
-//  DESIGNER NAME:  TBD
+//  DESIGNER NAME:  Hamzah Alani and Michael Ferraro
 //
-//       LAB NAME:  TBD
+//       LAB NAME:  A-Maze Game Final Project
 //
 //      FILE NAME:  main.c
 //
