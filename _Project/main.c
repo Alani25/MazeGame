@@ -10,7 +10,15 @@
 //-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
-//    This program serves as a ...
+// TODO - edit this to make it more ab the code
+//    We have created a digital maze game that can be played with a joystick, and 2 pushbuttons, in addition to keyboard keys.
+//
+// The game displays a menu to the device through serial communication, and the user is prompted to select a level.
+// Once a level is selected, the maze game will display on an 8x8 LEDs matrix, and the game starts. 
+// During gameplay, the user will have the option to restart the maze or quit the level and return to the main menu. 
+// If the user runs into a wall, a sound will play, and if the player navigates the maze successfully to the exit, a “winning” animation plays on the LEDs matrix. Similarly, if a user quits the maze they will be met with a losing animation.
+// The LCD screen and serial console will include game instructions.
+
 //
 //*****************************************************************************
 //*****************************************************************************
