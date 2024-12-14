@@ -22,8 +22,7 @@
 // maze they will be met with a losing animation. The LCD screen and serial 
 // console will include game instructions.
 // 
-// An additional browser interface for this project can be accessed through
-// hamzah.page/csc
+// Browser interface: https://hamzah.page/csc
 // 
 //
 //*****************************************************************************
