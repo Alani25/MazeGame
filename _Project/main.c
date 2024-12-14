@@ -10,15 +10,21 @@
 //-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
-// TODO - edit this to make it more ab the code
-//    We have created a digital maze game that can be played with a joystick, and 2 pushbuttons, in addition to keyboard keys.
-//
-// The game displays a menu to the device through serial communication, and the user is prompted to select a level.
-// Once a level is selected, the maze game will display on an 8x8 LEDs matrix, and the game starts. 
-// During gameplay, the user will have the option to restart the maze or quit the level and return to the main menu. 
-// If the user runs into a wall, a sound will play, and if the player navigates the maze successfully to the exit, a “winning” animation plays on the LEDs matrix. Similarly, if a user quits the maze they will be met with a losing animation.
-// The LCD screen and serial console will include game instructions.
-
+// We have created a digital maze game that can be played with a joystick, and 
+// 2 pushbuttons, in addition to keyboard keys. The game displays a menu to the 
+// device through serial communication, and the user is prompted to select a 
+// level. Once a level is selected, the maze game will display on an 8x8 LEDs 
+// matrix, and the game starts. 
+// During gameplay, the user will have the option to restart the maze or quit 
+// the level and return to the main menu. If the user runs into a wall, a sound 
+// will play, and if the player navigates the maze successfully to the exit, a 
+// “winning” animation plays on the LEDs matrix. Similarly, if a user quits the 
+// maze they will be met with a losing animation. The LCD screen and serial 
+// console will include game instructions.
+// 
+// An additional browser interface for this project can be accessed through
+// hamzah.page/csc
+// 
 //
 //*****************************************************************************
 //*****************************************************************************
@@ -41,21 +47,6 @@
 #include "uart.h"
 #include <math.h>
 
-/*
-
-#include "LaunchPad.h"
-#include "adc.h"
-#include "clock.h"
-#include "lcd1602.h"
-#include "spi.h"
-#include "uart.h"
-#include <math.h>
-
-added in the math library to use the pow function
-
-
-*/
-
 //-----------------------------------------------------------------------------
 // Define function prototypes used by the program
 //-----------------------------------------------------------------------------
@@ -70,7 +61,7 @@ void displayMaze(const char *string);
 
 char move_joystick(void);
 
-void matrix_test(const char *string);
+void matrix8x8(const char *string);
 
 void config_pb1_interrupts(void);
 
@@ -89,11 +80,14 @@ void mainMenu(void);
 //-----------------------------------------------------------------------------
 // Define symbolic constants used by the program
 //-----------------------------------------------------------------------------
+
 // maximum level number (can't be greater than 3)
 #define MAX_LEVEL_NUM 3
+
 #define FRAME_REPEAT 25
 #define ARRAY_Y_BOUNDS 66
 #define SERIAL_DELIMITER "-"
+
 //-----------------------------------------------------------------------------
 // Define global variables and structures here.
 // NOTE: when possible avoid using global variables
@@ -101,19 +95,19 @@ void mainMenu(void);
 
 // default player position on the map
 volatile int playerPos = 24;
-// current level selected (also affects game mode)
+// current level selected
 volatile uint8_t levelNum = 0;
 // counter variable to keep track of frames since start of the project
 volatile uint16_t counter = 0;
 
-// pb1 & pb2 interrupts
+// pb1 & pb2 (interrupts)
 bool g_pb1_pressed = false;
 bool g_pb2_pressed = false;
 
 // Define a structure to hold different data types
 int main(void) {
-  // default, setup
   
+  // default setup
   config(); // intializes all components and pin configurations
 
   // all maze levels
@@ -123,9 +117,9 @@ int main(void) {
     "       #"   //  8-15
     "       #"   // 16-23
     "       #"   // 24-31
-    "       #"   // 32-39 END of maze here
+    "       #"   // 32-39 
     "       #"   // 40-47
-    "        "   // 48-55
+    "        "   // 48-55 <- END of maze here
     "######## ", // 56-63
 
     // level 1.  Mitochondria
@@ -135,7 +129,7 @@ int main(void) {
     " # # # #"   // 24-31
     " # # # #"   // 32-39 
     " # # # #"   // 40-47
-    " # # #  "   // 48-55 END of maze here
+    " # # #  "   // 48-55 <- END of maze here
     " #   # # ", // 56-63
 
     // level 2.  Catacombs
@@ -143,7 +137,7 @@ int main(void) {
     " #  ## #"   //  8-15
     " # #   #"   // 16-23
     "   # ###"   // 24-31
-    " ###    "   // 32-39 END of maze here
+    " ###    "   // 32-39 <- END of maze here
     " # # # #"   // 40-47
     " # ### #"   // 48-55
     "    #  # " // 56-63
@@ -152,18 +146,20 @@ int main(void) {
     
 
   bool done = false;
-
   while(!done){
     // MAIN MENU MODE
-    // Display main meny until a level is selected
+    // Display main menu until a level is selected
     mainMenu();
+    // reset player position to default after a level is selected
     playerPos = 24;
-    // GAME MODE 
+    // start GAME MODE 
     bool win = playGame(mazeMap[levelNum]);
-    // notify user that they have completed the maze
+    // notify user if they have completed the maze
     gameComplete(win);
+    // play winning/ losing animation
     animation(win);
 
+    // notify user to press button 2 to return to menu
     lcd_set_ddram_addr(0x40);
     lcd_write_string("Press 2: MENU");
     while(!g_pb2_pressed); // wait for push button 2 to restart
@@ -195,7 +191,7 @@ void mainMenu(void) {
 
     UART_write_string("\n\r");
 
-    // Display
+    // Display menu heading
     UART_write_string("\n\r>>>>>  MAZE LEVEL  <<<<<\n\r");
     UART_write_string("Use JOYSTICK to switch between levels,\n\r");
     UART_write_string("Push button 1 to select level.\n\n\r");
@@ -209,24 +205,23 @@ void mainMenu(void) {
       UART_write_string(levelNum == i ? ">> Level " : "   Level ");
       UART_write_string(levelNames[i]);
     }
-    // keep this here, point to send data to serial
+    // keep this here, send data to serial
     UART_write_string(SERIAL_DELIMITER);
 
-    // delay slightly to avoid counting input as double
+    // delay slightly to avoid counting joystick input multiple times
     msec_delay(250);
 
     // get user inputed character based on KEYs & JOYSTICK
     char inputChar = ' ';
     // wait until we get input we should act on
-    while (inputChar != 'w' && inputChar != 's' && !g_pb1_pressed) {
-      // TODO turn this into a function for getting input since we use it
-      // multiple times Check for keyboard
+    while(inputChar != 'w' && inputChar != 's' && !g_pb1_pressed) {
+      // check for keyboard input
       if ((UART0->STAT & UART_STAT_RXFE_MASK) != UART_STAT_RXFE_SET)
         inputChar = ((char)(UART0->RXDATA));
       else //if ((counter % 15) == 0) // if not keyboard then check joystick
         inputChar = move_joystick();
     }
-    // Act based on the input
+    // Change level based on input
     switch (inputChar) {
     case 'w':
       if (levelNum > 0)
@@ -254,27 +249,26 @@ bool playGame(const char *maze) {
   lcd_write_string("Press 1: RESTART");
   lcd_set_ddram_addr(0x40);
   lcd_write_string("Press 2: QUIT");
+  
   g_pb2_pressed = false;
   bool done = false;
-  // GAME MODE
+  // GAME MODE main loop
   while (!done) {
     // global counter to keep track of frames
     counter++;
 
-    // TODO: Rename these two functions to make them easier to tell apart
     displayMaze(maze); // display maze in serial console
-    matrix_test(maze); // display maze on 8x8 LEDs
+    matrix8x8(maze); // display maze on 8x8 LEDs
 
-    // get user inputed character based on KEYs & JOYSTICK
+    // get user inputted character based on KEYs & JOYSTICK
     char inputChar = ' ';
 
-    // TODO: Create "getInput" function with serial & joystick
     // Check for keyboard, if none clicked then check for joystick
     if ((UART0->STAT & UART_STAT_RXFE_MASK) != UART_STAT_RXFE_SET)
       inputChar = ((char)(UART0->RXDATA));
     else if ((counter % 15) == 0)
       inputChar = move_joystick();
-    // do{ ... } while (inputChar == ' ');
+    // do{ ... } while (inputChar == ' '); // NOTE: Cannot do while loop, will delay multiplexing
 
     // Reset player position on pb1 press
     if (g_pb1_pressed)
@@ -284,10 +278,10 @@ bool playGame(const char *maze) {
     // interact with maze based on input
     switch (inputChar) {
     case 'w':
-      // move up
+      // move up, check there's no wall up
       if (playerPos > 7 && maze[playerPos - 8] != '#')
         playerPos -= 8;
-      else
+      else // if there's a wall up, then play buzzer
         buzzer();
       break;
 
@@ -300,12 +294,10 @@ bool playGame(const char *maze) {
       break;
 
     case 'd':
-      // move right
-      if ((playerPos + 1) % 8 != 0 &&
-          maze[playerPos + 1] !=
-              '#') // first check unnecessary, but goes with logic
+      // move right, check there's no wall right first
+      if ((playerPos + 1) % 8 != 0 && maze[playerPos + 1] !='#') // first check unnecessary, but goes with logic
         playerPos++;
-      else
+      else // if there's a wall right, then play buzzer
         buzzer();
       break;
 
@@ -324,10 +316,10 @@ bool playGame(const char *maze) {
     }
 
     // if player exits the maze or pb 2 pressed end loop
-    if ((playerPos + 1) % 8 == 0) { 
-      done = true; // NOTE: is this line useless? YES. The return already breaks the loop.
-      return true;
-    } else if (g_pb2_pressed) {
+    if ((playerPos + 1) % 8 == 0) { // if player reaches end, return true
+      done = true; // NOTE: is this line useless? YES. The return already breaks the loop. Keep here for logic though, not good habit to rely on breaks for while loops.
+      return true; 
+    } else if (g_pb2_pressed) { // if player quits maze, return false
       g_pb2_pressed = false;
       done = true;
       return false;
@@ -338,6 +330,7 @@ bool playGame(const char *maze) {
   } /* while loop, for playing the maze level */
 } /* playGame function */
 
+// notify user if they have completed the game
 void gameComplete(bool win)
 {
     // Send post game message
@@ -364,20 +357,18 @@ char move_joystick(void) {
   uint16_t adc_y = ADC0_in(7);
   uint16_t adc_x = ADC0_in(0);
 
-  if (adc_x < 5 || adc_x > 500 || adc_y < 500 ||
-      adc_y > 3e3) { // clean up later TODO
-    // Check adc range to return WASD direction
-    if (adc_y < 500)
-      return 'w';
-    if (adc_y > 3e3)
-      return 's';
-    if (adc_x < 5)
-      return 'a';
-    if (adc_x > 1000)
-      return 'd';
-    else
-      return ' ';
-  }
+  // Check adc range to return WASD direction
+  if (adc_y < 500)
+    return 'w';
+  if (adc_y > 3e3)
+    return 's';
+  if (adc_x < 5)
+    return 'a';
+  if (adc_x > 1000)
+    return 'd';
+  else
+    return ' ';
+  
 }
 
 ////////////////////
@@ -398,16 +389,16 @@ void displayMaze(const char *string) {
     // Place in an X for player position
     if (playerPos == index)
       UART_write_string("X");
-    else // draw maze as it is
+    else // else draw maze as it is
       UART_out_char(*string);
 
     // increment index & string char
     index++;
     string++;
   }
-//   UART_write_string("\n\r\n\r\n\r");
 }
-// Sending data to with 75HC595
+
+// Sending data to SPI shift register
 void send_spi_data(uint16_t spi_data) {
   spi1_write_data((uint8_t)spi_data);
   uint8_t received_data = spi1_read_data(); // TODO: Is this line necessary?
@@ -419,22 +410,25 @@ void update_leds(void) {
   msec_delay(1);
   GPIOB->DOUT31_0 &= ~LP_SPI_CS0_MASK;
 }
+
 // display the maze on the 8x8 LEDs (788BS)
-void matrix_test(const char *string) {
+void matrix8x8(const char *string) {
 
   // visual maze display for reference
   // |# # # # |     0- 7
   // | # ### #|     8-15
   // | # #   #|    16-23
   // |   # ###|    24-31
-  // | ###    |    32-39 END of maze here
+  // | ###    |    32-39
   // | # # # #|    40-47
   // | # ### #|    48-55
   // |    #  #|    56-63
 
+  // start count at 0, y at 128: binary 10000000, far top row
   int index = 0;
-  uint8_t y = 128; // #10000000
-
+  uint8_t y = 128;
+  
+  // loop through maze array
   while (*string != '\0') {
 
     //  uint8_t y = 2^((uint8_t)floor(index/8));
@@ -442,7 +436,6 @@ void matrix_test(const char *string) {
       // short delay BEFORE turning LEDs off, multiplexing
       msec_delay(1);
 
-      // x7, y++
       // turn off all LEDs (x)
       leds_off();
 
@@ -456,10 +449,11 @@ void matrix_test(const char *string) {
 
     // NOTE: playerPos == index when we're at the player position
 
-    // Turn on X LED if we're at a wall in row `floor(index/8)`
+    // Turn on [n] LED if we're at a wall in row `floor(index/8)`
     if (*string == '#')
       led_on(7 - (index % 8));
-    else if (playerPos == index && (counter % 8) < 4) {
+    // else check if position is player
+    else if (playerPos == index && (counter % 8) < 4) { // (counter % 8)<4 is what causes the player to "flicker"
       led_on(7 - (index % 8));
     }
     // increment index & string char
@@ -473,33 +467,36 @@ void matrix_test(const char *string) {
 ////////////////////
 void buzzer(void)
 {
-  // notify serial of buzzer on
+  // notify serial of buzzer on (causes "screen shake" on browser interface)
   UART_write_string("!");
-  
-  lp_leds_on(LP_RGB_BLU_LED_IDX);
-  msec_delay(100);
-  lp_leds_off(LP_RGB_BLU_LED_IDX);
-  msec_delay(100);
-  lp_leds_on(LP_RGB_BLU_LED_IDX);
-  msec_delay(100);
-  lp_leds_off(LP_RGB_BLU_LED_IDX);
-}
 
+  // Turn on & off buzzer through blue LED pin
+  lp_leds_on(LP_RGB_BLU_LED_IDX);
+  msec_delay(100);
+  lp_leds_off(LP_RGB_BLU_LED_IDX);
+  msec_delay(100);
+  lp_leds_on(LP_RGB_BLU_LED_IDX);
+  msec_delay(100);
+  lp_leds_off(LP_RGB_BLU_LED_IDX);
+  
+}
 
 
 ////////////////////
 //   ANIMATION    //
 ////////////////////
-void animation(bool win)
-{
-    playerPos = 65;
+void animation(bool win){
+
+  // Move player position outside of the maze so they're not affected by animation
+  playerPos = 65;
+  // Define frames for the winning animation
   char framesWin[][ARRAY_Y_BOUNDS] = {
     
     "########"   //  0- 7
     "#      #"   //  8-15
     "#      #"   // 16-23
     "#      #"   // 24-31
-    "#      #"   // 32-39 END of maze here
+    "#      #"   // 32-39
     "#      #"   // 40-47
     "#      #"   // 48-55
     "######## ", // 56-63
@@ -509,7 +506,7 @@ void animation(bool win)
     " ###### "   //  8-15
     " #    # "   // 16-23
     " #    # "   // 24-31
-    " #    # "   // 32-39 END of maze here
+    " #    # "   // 32-39
     " #    # "   // 40-47
     " ###### "   // 48-55
     "         ", // 56-63
@@ -519,7 +516,7 @@ void animation(bool win)
     "        "   //  8-15
     "  ####  "   // 16-23
     "  #  #  "   // 24-31
-    "  #  #  "   // 32-39 END of maze here
+    "  #  #  "   // 32-39
     "  ####  "   // 40-47
     "        "   // 48-55
     "         ", // 56-63
@@ -529,7 +526,7 @@ void animation(bool win)
     "        "   //  8-15
     "        "   // 16-23
     "   ##   "   // 24-31
-    "   ##   "   // 32-39 END of maze here
+    "   ##   "   // 32-39
     "        "   // 40-47
     "        "   // 48-55
     "         ", // 56-63
@@ -539,7 +536,7 @@ void animation(bool win)
     "        "   //  8-15
     "        "   // 16-23
     "        "   // 24-31
-    "        "   // 32-39 END of maze here
+    "        "   // 32-39
     "        "   // 40-47
     "        "   // 48-55
     "         ", // 56-63
@@ -548,19 +545,20 @@ void animation(bool win)
     "  #  #  "   //  8-15
     "  #  #  "   // 16-23
     "        "   // 24-31
-    " #    # "   // 32-39 END of maze here
+    " #    # "   // 32-39
     " #    # "   // 40-47
     " ###### "   // 48-55
     "         " // 56-63
   }; 
 
+  // define frames for the losing animation
   char framesLose[][ARRAY_Y_BOUNDS] = {
     
     "########"   //  0- 7
     "#      #"   //  8-15
     "#      #"   // 16-23
     "#      #"   // 24-31
-    "#      #"   // 32-39 END of maze here
+    "#      #"   // 32-39
     "#      #"   // 40-47
     "#      #"   // 48-55
     "######## ", // 56-63
@@ -570,7 +568,7 @@ void animation(bool win)
     " ###### "   //  8-15
     " #    # "   // 16-23
     " #    # "   // 24-31
-    " #    # "   // 32-39 END of maze here
+    " #    # "   // 32-39
     " #    # "   // 40-47
     " ###### "   // 48-55
     "         ", // 56-63
@@ -580,7 +578,7 @@ void animation(bool win)
     "        "   //  8-15
     "  ####  "   // 16-23
     "  #  #  "   // 24-31
-    "  #  #  "   // 32-39 END of maze here
+    "  #  #  "   // 32-39
     "  ####  "   // 40-47
     "        "   // 48-55
     "         ", // 56-63
@@ -590,7 +588,7 @@ void animation(bool win)
     "        "   //  8-15
     "        "   // 16-23
     "   ##   "   // 24-31
-    "   ##   "   // 32-39 END of maze here
+    "   ##   "   // 32-39
     "        "   // 40-47
     "        "   // 48-55
     "         ", // 56-63
@@ -600,7 +598,7 @@ void animation(bool win)
     "        "   //  8-15
     "        "   // 16-23
     "        "   // 24-31
-    "        "   // 32-39 END of maze here
+    "        "   // 32-39
     "        "   // 40-47
     "        "   // 48-55
     "         ", // 56-63
@@ -609,24 +607,23 @@ void animation(bool win)
     "  #  #  "   //  8-15
     "  #  #  "   // 16-23
     "        "   // 24-31
-    " ###### "   // 32-39 END of maze here
+    " ###### "   // 32-39
     " #    # "   // 40-47
     " #    # "   // 48-55
     "         " // 56-63
   };
 
-  if(win)
-  {
-    for(uint8_t i = 0; i <((sizeof(framesWin)/ARRAY_Y_BOUNDS) *FRAME_REPEAT);i++)
-    {
-      matrix_test(framesWin[(i/FRAME_REPEAT)]);
+  if(win){
+    // loop through winning animation
+    for(uint8_t i = 0; i <((sizeof(framesWin)/ARRAY_Y_BOUNDS) *FRAME_REPEAT);i++){
+      matrix8x8(framesWin[(i/FRAME_REPEAT)]); // display frame on matrix
     }
-  }
-  else {
-    for(uint8_t i = 0; i <((sizeof(framesLose)/ARRAY_Y_BOUNDS) *FRAME_REPEAT);i++)
-    {
+  } else {
+    // loop through losing animation
+    for(uint8_t i = 0; i <((sizeof(framesLose)/ARRAY_Y_BOUNDS) *FRAME_REPEAT);i++){
+      // play annoying buzzer while animation plays
       lp_leds_on(LP_RGB_BLU_LED_IDX);
-      matrix_test(framesLose[(i/FRAME_REPEAT)]);
+      matrix8x8(framesLose[(i/FRAME_REPEAT)]); // display frame on matrix
       lp_leds_off(LP_RGB_BLU_LED_IDX);
     }
   }
@@ -641,7 +638,6 @@ void UART_write_string(const char *string) {
   while (*string != '\0') {
     UART_out_char(*string++);
   }
-
 } /* UART_write_string */
 
 ////////////////////
@@ -666,6 +662,9 @@ void config(void) {
   seg7_off();
   UART_init(115200); // baud rate of 115200
   ADC0_init(ADC12_MEMCTL_VRSEL_VDDA_VSSA); // Initialize ADC
+
+  // set interrupts
+  
   GPIOA->POLARITY15_0 = GPIO_POLARITY15_0_DIO15_RISE;
   GPIOA->CPU_INT.ICLR = GPIO_CPU_INT_ICLR_DIO15_CLR;
   GPIOA->CPU_INT.IMASK = GPIO_CPU_INT_IMASK_DIO15_SET;
